@@ -10,25 +10,29 @@ The raw reads and alignment files for single-cell RNA-seq and ATAC-seq are avail
 Preprocessed feature-barcode matrices can be accessed on Figshare vis 10.6084/m9.figshare.26795323.
 
 # Analysis Workflow
-This pipeline integrates RNA (GEX) and ATAC-seq data to identify photoperiod-responsive molecular markers through the following main steps:
+This pipeline integrates RNA (GEX) and ATAC-seq data to identify cell-specific and photoperiod-responsive molecular markers through the following main steps:
 
-1. Setup and Data Preparation
+## 1. Data Preparation
 
-Load packages, import RNA and ATAC data, and create Seurat objects.
-Build an annotation database and extract relevant gene expression and peak data.
-Quality Control and Peak Processing
+  Import RNA and ATAC data, and create Seurat objects.
+  Build an annotation database and extract relevant gene expression and peak data.
 
-Filter low-quality data, recall peaks, and create a non-redundant peak set.
-Quantify and integrate peaks as a new assay.
-Multimodal Data Integration
+## 2. Quality Control and Peak Processing
 
-Preprocess GEX and ATAC data separately, including normalization, feature selection, PCA, and LSI computation.
-Find integration anchors and perform joint integration for combined analysis.
-Clustering and Marker Identification
+  Filter low-quality data, recall peaks, and create a non-redundant peak set.
+  Quantify and integrate peaks as a new assay.
 
-Conduct independent clustering (GEX, ATAC) and joint clustering (WNN).
-Identify cell-specific markers: DEGs (for GEX) and DARs (for ATAC).
-Motif and Photoperiod-Responsive Analysis
+## 3. Multimodal Data Integration
 
-Perform motif scanning and activity computation for overrepresented motifs in DARs.
-Identify photoperiod-responsive DEGs and DEMs in each cell cluster.
+  Preprocess GEX and ATAC data separately, including normalization, feature selection, PCA, and LSI computation.
+  Find integration anchors and perform joint integration for combined analysis.
+
+## 4. Clustering and Marker Identification
+
+  Independent clustering (GEX, ATAC) and joint clustering (WNN).
+  Identify cell-specific markers: DEGs (for GEX) and DARs (for ATAC).
+
+## 5. Motif and Photoperiod-Responsive Analysis
+
+  Perform motif scanning and activity computation for overrepresented motifs in DARs.
+  Identify photoperiod-responsive DEGs and DEMs in each cell cluster.
