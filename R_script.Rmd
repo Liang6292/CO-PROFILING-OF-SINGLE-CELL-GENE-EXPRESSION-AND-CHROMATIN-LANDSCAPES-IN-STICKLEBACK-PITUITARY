@@ -1,0 +1,1537 @@
+---
+title: "scMultiome"
+author: "Liang Liu"
+date: "`r Sys.Time()`"
+---
+
+# Load packages
+```{r Load Packages, message=TRUE, warning=TRUE, paged.print=TRUE}
+#Necessary packages
+library(Seurat)
+library(Signac)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(cowplot)
+library(Ipaper)
+library(patchwork)
+library(ensembldb)
+library(clustree)
+library(rmdformats)
+library(future)
+library(future.apply)
+library(qlcMatrix)
+library(GenomicRanges)
+library(Rsamtools)
+library(chromVAR)
+library(JASPAR2022)
+library(presto)
+library(TFBSTools)
+library(motifmatchr)
+library(ggseqlogo)
+library(RColorBrewer)
+library(viridis)
+library(speckle)
+library(biomartr)
+library(tidydr)
+library(PupillometryR)
+options(Seurat.object.assay.version = "v3")
+```
+
+---
+
+# Load data
+```{r loda data, message=TRUE, paged.print=TRUE, warnin=TRUE}
+# scM_pit_SD_1
+scM_pit_SD_1 <- Read10X(
+  "~/scM_SD_1_filtered_feature_bc_matrix/",
+  gene.column = 2,
+  cell.column = 1,
+  unique.features = TRUE,
+  strip.suffix = FALSE
+)
+
+# scM_pit_SD_2
+scM_pit_SD_2 <- Read10X(
+  "~/scM_SD_2_filtered_feature_bc_matrix/",
+  gene.column = 2,
+  cell.column = 1,
+  unique.features = TRUE,
+  strip.suffix = FALSE
+)
+
+# scM_pit_SD_3
+scM_pit_SD_3 <- Read10X(
+  "~/scM_SD_3_filtered_feature_bc_matrix/",
+  gene.column = 2,
+  cell.column = 1,
+  unique.features = TRUE,
+  strip.suffix = FALSE
+)
+
+# scM_pit_LD1d_1
+scM_pit_LD1d_1 <- Read10X(
+  "~/scM_LD1d_1_filtered_feature_bc_matrix/",
+  gene.column = 2,
+  cell.column = 1,
+  unique.features = TRUE,
+  strip.suffix = FALSE
+)
+
+# scM_pit_LD1d_2
+scM_pit_LD1d_2 <- Read10X(
+  "~/scM_LD1d_2_filtered_feature_bc_matrix/",
+  gene.column = 2,
+  cell.column = 1,
+  unique.features = TRUE,
+  strip.suffix = FALSE
+)
+
+# scM_pit_LD2d_1
+scM_pit_LD2d_1 <- Read10X(
+  "~/scM_LD2d_1_filtered_feature_bc_matrix/",
+  gene.column = 2,
+  cell.column = 1,
+  unique.features = TRUE,
+  strip.suffix = FALSE
+)
+```
+
+---
+
+# Extract RNA data
+```{r Extract RNA data, message=TRUE, warning=TRUE, paged.print=TRUE}
+# scM_pit_SD_1
+scM_pit_SD_1_trancript_counts <- scM_pit_SD_1$`Gene Expression`
+scM_pit_SD_1_trancript_counts[1:10, 1:10]
+
+# scM_pit_SD_2
+scM_pit_SD_2_trancript_counts <- scM_pit_SD_2$`Gene Expression`
+scM_pit_SD_2_trancript_counts[1:10, 1:10]
+
+# scM_pit_SD_3
+scM_pit_SD_3_trancript_counts <- scM_pit_SD_3$`Gene Expression`
+scM_pit_SD_3_trancript_counts[1:10, 1:10]
+
+# scM_pit_LD1d_1
+scM_pit_LD1d_1_trancript_counts <- scM_pit_LD1d_1$`Gene Expression`
+scM_pit_LD1d_1_trancript_counts[1:10, 1:10]
+
+# scM_pit_LD1d_2
+scM_pit_LD1d_2_trancript_counts <- scM_pit_LD1d_2$`Gene Expression`
+scM_pit_LD1d_2_trancript_counts[1:10, 1:10]
+
+# scM_pit_LD2d_1
+scM_pit_LD2d_1_trancript_counts <- scM_pit_LD2d_1$`Gene Expression`
+scM_pit_LD2d_1_trancript_counts[1:10, 1:10]
+```
+
+
+# Extract peak data
+```{r Extract peak data, message=TRUE, warning=TRUE, paged.print=TRUE}
+#scM_pit_SD_1
+scM_pit_SD_1_peak_counts <- scM_pit_SD_1$`Peaks`
+scM_pit_SD_1_peak_counts[1:10, 1:10]
+
+#scM_pit_SD_2
+scM_pit_SD_2_peak_counts <- scM_pit_SD_2$`Peaks`
+scM_pit_SD_2_peak_counts[1:10, 1:10]
+
+#scM_pit_SD_3
+scM_pit_SD_3_peak_counts <- scM_pit_SD_3$`Peaks`
+scM_pit_SD_3_peak_counts[1:10, 1:10]
+
+# scM_pit_LD1d_1
+scM_pit_LD1d_1_peak_counts <- scM_pit_LD1d_1$`Peaks`
+scM_pit_LD1d_1_peak_counts[1:10, 1:10]
+
+# scM_pit_LD1d_2
+scM_pit_LD1d_2_peak_counts <- scM_pit_LD1d_2$`Peaks`
+scM_pit_LD1d_2_peak_counts[1:10, 1:10]
+
+# scM_pit_LD2d_1
+scM_pit_LD2d_1_peak_counts <- scM_pit_LD2d_1$`Peaks`
+scM_pit_LD2d_1_peak_counts[1:10, 1:10]
+```
+
+---
+
+# Create seurat object (GEX)
+```{r seurat object, message=TRUE, warning=TRUE, paged.print=TRUE}
+# scM_pit_SD_1
+scM_pit_SD_1_md <- read.csv(
+  file = "~/metadata/scM_SD_1_per_barcode_metrics.csv",
+  header = TRUE,
+  row.names = 1
+)
+scM_pit_SD_1_object <- CreateSeuratObject(
+  counts = scM_pit_SD_1_trancript_counts,
+  project = "scM_pit_SD_1",
+  assay = "RNA",
+  meta.data = scM_pit_SD_1_md
+)
+scM_pit_SD_1_object[["percent.mt"]] <- PercentageFeatureSet(scM_pit_SD_1_object,
+  pattern = "mt-"
+)
+head(scM_pit_SD_1_object@meta.data)
+
+# scM_pit_SD_2
+scM_pit_SD_2_md <- read.csv(
+  file = "~/metadata/scM_SD_2_per_barcode_metrics.csv",
+  header = TRUE,
+  row.names = 1
+)
+scM_pit_SD_2_object <- CreateSeuratObject(
+  counts = scM_pit_SD_2_trancript_counts,
+  project = "scM_pit_SD_2",
+  assay = "RNA",
+  meta.data = scM_pit_SD_2_md
+)
+scM_pit_SD_2_object[["percent.mt"]] <- PercentageFeatureSet(scM_pit_SD_2_object,
+  pattern = "mt-"
+)
+head(scM_pit_SD_2_object@meta.data)
+
+# scM_pit_SD_3
+scM_pit_SD_3_md <- read.csv(
+  file = "~/metadata/scM_SD_3_per_barcode_metrics.csv",
+  header = TRUE,
+  row.names = 1
+)
+scM_pit_SD_3_object <- CreateSeuratObject(
+  counts = scM_pit_SD_3_trancript_counts,
+  project = "scM_pit_SD_3",
+  assay = "RNA",
+  meta.data = scM_pit_SD_3_md
+)
+scM_pit_SD_3_object[["percent.mt"]] <- PercentageFeatureSet(scM_pit_SD_3_object,
+  pattern = "mt-"
+)
+head(scM_pit_SD_3_object@meta.data)
+
+# scM_pit_LD1d_1
+scM_pit_LD1d_1_md <- read.csv(
+  file = "~/metadata/scM_LD1d_1_per_barcode_metrics.csv",
+  header = TRUE,
+  row.names = 1
+)
+scM_pit_LD1d_1_object <- CreateSeuratObject(
+  counts = scM_pit_LD1d_1_trancript_counts,
+  project = "scM_pit_LD1d_1",
+  assay = "RNA",
+  meta.data = scM_pit_LD1d_1_md
+)
+scM_pit_LD1d_1_object[["percent.mt"]] <- PercentageFeatureSet(scM_pit_LD1d_1_object,
+  pattern = "mt-"
+)
+head(scM_pit_LD1d_1_object@meta.data)
+
+# scM_pit_LD1d_2
+scM_pit_LD1d_2_md <- read.csv(
+  file = "~/metadata/scM_LD1d_2_per_barcode_metrics.csv",
+  header = TRUE,
+  row.names = 1
+)
+scM_pit_LD1d_2_object <- CreateSeuratObject(
+  counts = scM_pit_LD1d_2_trancript_counts,
+  project = "scM_pit_LD1d_2",
+  assay = "RNA",
+  meta.data = scM_pit_LD1d_2_md
+)
+scM_pit_LD1d_2_object[["percent.mt"]] <- PercentageFeatureSet(scM_pit_LD1d_2_object,
+  pattern = "mt-"
+)
+head(scM_pit_LD1d_2_object@meta.data)
+
+# scM_pit_LD2d_1
+scM_pit_LD2d_1_md <- read.csv(
+  file = "~/metadata/scM_LD2d_1_per_barcode_metrics.csv",
+  header = TRUE,
+  row.names = 1
+)
+scM_pit_LD2d_1_object <- CreateSeuratObject(
+  counts = scM_pit_LD2d_1_trancript_counts,
+  project = "scM_pit_LD2d_1",
+  assay = "RNA",
+  meta.data = scM_pit_LD2d_1_md
+)
+scM_pit_LD2d_1_object[["percent.mt"]] <- PercentageFeatureSet(scM_pit_LD2d_1_object,
+  pattern = "mt-"
+)
+head(scM_pit_LD2d_1_object@meta.data)
+```
+
+---
+
+# Build annotation database
+```{r Build annotation database, message=TRUE, warning=TRUE, paged.print=TRUE}
+# import gtf (also avaliable through database query)
+sticklebackdb <- ensDbFromGtf(gtf = "path_to_gtf_file",
+                              organism = "Gasterosteus aculeatus",
+                              path = "path_to_SQLite_database")
+# create EnsDb object
+sticklebackedb <- EnsDb(sticklebackdb)
+annotation <- GetGRangesFromEnsDb(
+  ensdb = sticklebackedb,
+  standard.chromosomes = F,
+  verbose = T
+)
+
+annotations <- keepSeqlevels(annotation,
+  c(
+    "groupI",
+    "groupII",
+    "groupIII",
+    "groupIV",
+    "groupV",
+    "groupVI",
+    "groupVII",
+    "groupVIII",
+    "groupIX",
+    "groupX",
+    "groupXI",
+    "groupXII",
+    "groupXIII",
+    "groupXIV",
+    "groupXV",
+    "groupXVI",
+    "groupXVII",
+    "groupXVIII",
+    "groupXIX",
+    "groupXX",
+    "groupXXI"
+  ),
+  pruning.mode = "coarse"
+)
+
+# check chromosomes and scaffolds
+annotations@seqnames@values
+```
+
+---
+
+# Create Chromatin Assay (ATAC)
+```{r Chromatin Assay, message=TRUE, warning=TRUE, paged.print=TRUE}
+# scM_pit_SD_1
+scM_pit_SD_1_frag.file <- "~/fragments/scM_SD_1_atac_fragments.tsv.gz"
+
+scM_pit_SD_1_chrom_assay <- CreateChromatinAssay(
+  counts = scM_pit_SD_1_peak_counts,
+  sep = c(":", "-"),
+  fragments = scM_pit_SD_1_frag.file,
+  min.cells = 1,
+  annotation = annotations
+)
+
+scM_pit_SD_1_object[["ATAC"]] <- scM_pit_SD_1_chrom_assay
+Annotation(scM_pit_SD_1_object[["ATAC"]]) <- annotations
+granges(scM_pit_SD_1_object[["ATAC"]])
+
+# scM_pit_SD_2
+scM_pit_SD_2_frag.file <- "~/fragments/scM_SD_2_atac_fragments.tsv.gz"
+
+scM_pit_SD_2_chrom_assay <- CreateChromatinAssay(
+  counts = scM_pit_SD_2_peak_counts,
+  sep = c(":", "-"),
+  fragments = scM_pit_SD_2_frag.file,
+  min.cells = 1,
+  annotation = annotations
+)
+
+scM_pit_SD_2_object[["ATAC"]] <- scM_pit_SD_2_chrom_assay
+Annotation(scM_pit_SD_2_object[["ATAC"]]) <- annotations
+granges(scM_pit_SD_2_object[["ATAC"]])
+
+# scM_pit_SD_3
+scM_pit_SD_3_frag.file <- "~/fragments/scM_SD_3_atac_fragments.tsv.gz"
+
+scM_pit_SD_3_chrom_assay <- CreateChromatinAssay(
+  counts = scM_pit_SD_3_peak_counts,
+  sep = c(":", "-"),
+  fragments = scM_pit_SD_3_frag.file,
+  min.cells = 1,
+  annotation = annotations
+)
+
+scM_pit_SD_3_object[["ATAC"]] <- scM_pit_SD_3_chrom_assay
+Annotation(scM_pit_SD_3_object[["ATAC"]]) <- annotations
+granges(scM_pit_SD_3_object[["ATAC"]])
+
+# scM_pit_LD1d_1
+scM_pit_LD1d_1_frag.file <- "~/fragments/scM_LD1d_1_atac_fragments.tsv.gz"
+
+scM_pit_LD1d_1_chrom_assay <- CreateChromatinAssay(
+  counts = scM_pit_LD1d_1_peak_counts,
+  sep = c(":", "-"),
+  fragments = scM_pit_LD1d_1_frag.file,
+  min.cells = 1,
+  annotation = annotations
+)
+
+scM_pit_LD1d_1_object[["ATAC"]] <- scM_pit_LD1d_1_chrom_assay
+Annotation(scM_pit_LD1d_1_object[["ATAC"]]) <- annotations
+granges(scM_pit_LD1d_1_object[["ATAC"]])
+
+# scM_pit_LD1d_2
+scM_pit_LD1d_2_frag.file <- "~/fragments/scM_LD1d_2_atac_fragments.tsv.gz"
+
+scM_pit_LD1d_2_chrom_assay <- CreateChromatinAssay(
+  counts = scM_pit_LD1d_2_peak_counts,
+  sep = c(":", "-"),
+  fragments = scM_pit_LD1d_2_frag.file,
+  min.cells = 1,
+  annotation = annotations
+)
+
+scM_pit_LD1d_2_object[["ATAC"]] <- scM_pit_LD1d_2_chrom_assay
+Annotation(scM_pit_LD1d_2_object[["ATAC"]]) <- annotations
+granges(scM_pit_LD1d_2_object[["ATAC"]])
+
+# scM_pit_LD2d_1
+scM_pit_LD2d_1_frag.file <- "~/fragments/scM_LD2d_1_atac_fragments.tsv.gz"
+
+scM_pit_LD2d_1_chrom_assay <- CreateChromatinAssay(
+  counts = scM_pit_LD2d_1_peak_counts,
+  sep = c(":", "-"),
+  fragments = scM_pit_LD2d_1_frag.file,
+  min.cells = 1,
+  annotation = annotations
+)
+
+scM_pit_LD2d_1_object[["ATAC"]] <- scM_pit_LD2d_1_chrom_assay
+Annotation(scM_pit_LD2d_1_object[["ATAC"]]) <- annotations
+granges(scM_pit_LD2d_1_object[["ATAC"]])
+```
+
+---
+
+## Tss enrichment
+```{r Tss enrichment, message=TRUE, warning=TRUE, paged.print=TRUE}
+# scM_pit_SD_1
+DefaultAssay(scM_pit_SD_1_object) <- "ATAC"
+scM_pit_SD_1_object <- TSSEnrichment(object = scM_pit_SD_1_object,
+                                         fast = FALSE,
+                                         assay = "ATAC",
+                                         verbose = TRUE)
+
+# scM_pit_SD_2
+DefaultAssay(scM_pit_SD_2_object) <- "ATAC"
+scM_pit_SD_2_object <- TSSEnrichment(object = scM_pit_SD_2_object,
+                                         fast = FALSE,
+                                         assay = "ATAC",
+                                         verbose = TRUE)
+
+# scM_pit_SD_3
+DefaultAssay(scM_pit_SD_3_object) <- "ATAC"
+scM_pit_SD_3_object <- TSSEnrichment(object = scM_pit_SD_3_object,
+                                         fast = FALSE,
+                                         assay = "ATAC",
+                                         verbose = TRUE)
+
+# scM_pit_LD1d_1
+DefaultAssay(scM_pit_LD1d_1_object) <- "ATAC"
+scM_pit_LD1d_1_object <- TSSEnrichment(object = scM_pit_LD1d_1_object,
+                                         fast = FALSE,
+                                         assay = "ATAC",
+                                         verbose = TRUE)
+
+# scM_pit_LD1d_2
+DefaultAssay(scM_pit_LD1d_2_object) <- "ATAC"
+scM_pit_LD1d_2_object <- TSSEnrichment(object = scM_pit_LD1d_2_object,
+                                         fast = FALSE,
+                                         assay = "ATAC",
+                                         verbose = TRUE)
+
+# scM_pit_LD2d_1
+DefaultAssay(scM_pit_LD2d_1_object) <- "ATAC"
+scM_pit_LD2d_1_object <- TSSEnrichment(object = scM_pit_LD2d_1_object,
+                                         fast = FALSE,
+                                         assay = "ATAC",
+                                         verbose = TRUE)
+```
+
+---
+
+## Nucleosomal signal
+```{r Nucleosomal signal, message=TRUE, warning=TRUE, paged.print=TRUE}
+# scM_pit_SD_1
+scM_pit_SD_1_object <- NucleosomeSignal(object = scM_pit_SD_1_object,
+                                        assay = "ATAC",
+                                        verbose = TRUE)
+
+# scM_pit_SD_2
+scM_pit_SD_2_object <- NucleosomeSignal(object = scM_pit_SD_2_object,
+                                        assay = "ATAC",
+                                        verbose = TRUE)
+
+# scM_pit_SD_3
+scM_pit_SD_3_object <- NucleosomeSignal(object = scM_pit_SD_3_object,
+                                        assay = "ATAC",
+                                        verbose = TRUE)
+
+# scM_pit_LD1d_1
+scM_pit_LD1d_1_object <- NucleosomeSignal(object = scM_pit_LD1d_1_object,
+                                        assay = "ATAC",
+                                        verbose = TRUE)
+
+# scM_pit_LD1d_2
+scM_pit_LD1d_2_object <- NucleosomeSignal(object = scM_pit_LD1d_2_object,
+                                        assay = "ATAC",
+                                        verbose = TRUE)
+
+# scM_pit_LD2d_1
+scM_pit_LD2d_1_object <- NucleosomeSignal(object = scM_pit_LD2d_1_object,
+                                        assay = "ATAC",
+                                        verbose = TRUE)
+```
+
+---
+
+# QC (filtration)
+```{r QC (filteration), message=TRUE, warning=TRUE, paged.print=TRUE}
+# summarize cell number in each object
+cell_number <- matrix(nrow = 2, ncol = 6)
+rownames(cell_number) <- c("before", "after")
+colnames(cell_number) <- c("scM_pit_SD_1", "scM_pit_SD_2", "scM_pit_SD_3", "scM_pit_LD1d_1", "scM_pit_LD1d_2", "scM_pit_LD2d_1")
+cell_number["before", "scM_pit_SD_1"] <- length(scM_pit_SD_1_object@meta.data$orig.ident)
+cell_number["before", "scM_pit_SD_2"] <- length(scM_pit_SD_2_object@meta.data$orig.ident)
+cell_number["before", "scM_pit_SD_3"] <- length(scM_pit_SD_3_object@meta.data$orig.ident)
+cell_number["before", "scM_pit_LD1d_1"] <- length(scM_pit_LD1d_1_object@meta.data$orig.ident)
+cell_number["before", "scM_pit_LD1d_2"] <- length(scM_pit_LD1d_2_object@meta.data$orig.ident)
+cell_number["before", "scM_pit_LD2d_1"] <- length(scM_pit_LD2d_1_object@meta.data$orig.ident)
+
+# scM_pit_SD_1
+scM_pit_SD_1_pQC <- subset(
+  x = scM_pit_SD_1_object,
+  subset = nFeature_RNA > 10 &
+    nFeature_RNA < 3000 & 
+    percent.mt < 20 &
+    nucleosome_signal < 2 &
+    TSS.enrichment > 1  
+)
+cell_number["after", "scM_pit_SD_1"] <- length(scM_pit_SD_1_pQC@meta.data$orig.ident)
+
+# scM_pit_SD_2
+scM_pit_SD_2_pQC <- subset(
+  x = scM_pit_SD_2_object,
+  subset = nFeature_RNA > 10 &
+    nFeature_RNA < 3000 & 
+    percent.mt < 20 &
+    nucleosome_signal < 2 &
+    TSS.enrichment > 1  
+)
+cell_number["after", "scM_pit_SD_2"] <- length(scM_pit_SD_2_pQC@meta.data$orig.ident)
+
+# scM_pit_SD_3
+scM_pit_SD_3_pQC <- subset(
+  x = scM_pit_SD_3_object,
+  subset = nFeature_RNA > 100 &
+    nFeature_RNA < 3000 & 
+    percent.mt < 20 &
+    nucleosome_signal < 2 &
+    TSS.enrichment > 1  
+)
+cell_number["after", "scM_pit_SD_3"] <- length(scM_pit_SD_3_pQC@meta.data$orig.ident)
+
+# scM_pit_LD1d_1
+scM_pit_LD1d_1_pQC <- subset(
+  x = scM_pit_LD1d_1_object,
+  subset = nFeature_RNA > 10 &
+    nFeature_RNA < 3000 & 
+    percent.mt < 20 &
+    nucleosome_signal < 2 &
+    TSS.enrichment > 1  
+)
+cell_number["after", "scM_pit_LD1d_1"] <- length(scM_pit_LD1d_1_pQC@meta.data$orig.ident)
+
+# scM_pit_LD1d_2
+scM_pit_LD1d_2_pQC <- subset(
+  x = scM_pit_LD1d_2_object,
+  subset = nFeature_RNA > 10 &
+    nFeature_RNA < 3000 & 
+    percent.mt < 20 &
+    nucleosome_signal < 2 &
+    TSS.enrichment > 1  
+)
+cell_number["after", "scM_pit_LD1d_2"] <- length(scM_pit_LD1d_2_pQC@meta.data$orig.ident)
+
+# scM_pit_LD2d_1
+scM_pit_LD2d_1_pQC <- subset(
+  x = scM_pit_LD2d_1_object,
+  subset = nFeature_RNA > 100 &
+    nFeature_RNA < 3000 & 
+    percent.mt < 20 &
+    nucleosome_signal < 2 &
+    TSS.enrichment > 1  
+)
+cell_number["after", "scM_pit_LD2d_1"] <- length(scM_pit_LD2d_1_pQC@meta.data$orig.ident)
+
+print(cell_number)
+```
+
+---
+
+# Peak Recalling
+```{r Peak Recalling, message=TRUE, warning=TRUE, paged.print=TRUE}
+# scM_pit_SD_1
+scM_pit_SD_1_peaks <- CallPeaks(scM_pit_SD_1_pQC,
+  assay = "ATAC",
+  format = "BED",
+  outdir = "/outpath",
+  name = "scM_pit_SD_1",
+  macs2.path = "~/path_to_macs2",
+  effective.genome.size = 4.5e8,
+  cleanup = FALSE,
+  broad = FALSE,
+  verbose = TRUE
+)
+
+# scM_pit_SD_2
+scM_pit_SD_2_peaks <- CallPeaks(scM_pit_SD_2_pQC,
+  assay = "ATAC",
+  format = "BED",
+  outdir = "/outpath",
+  name = "scM_pit_SD_2",
+  macs2.path = "~/path_to_macs2",
+  effective.genome.size = 4.5e8,
+  cleanup = FALSE,
+  broad = FALSE,
+  verbose = TRUE
+)
+
+# scM_pit_SD_3
+scM_pit_SD_3_peaks <- CallPeaks(scM_pit_SD_3_pQC,
+  assay = "ATAC",
+  format = "BED",
+  outdir = "/outpath",
+  name = "scM_pit_SD_3",
+  macs2.path = "~/path_to_macs2",
+  effective.genome.size = 4.5e8,
+  cleanup = FALSE,
+  broad = FALSE,
+  verbose = TRUE
+)
+
+# scM_pit_LD1d_1
+scM_pit_LD1d_1_peaks <- CallPeaks(scM_pit_LD1d_1_pQC,
+  assay = "ATAC",
+  format = "BED",
+  outdir = "/outpath",
+  name = "scM_pit_LD1d_1",
+  macs2.path = "~/path_to_macs2",
+  effective.genome.size = 4.5e8,
+  cleanup = FALSE,
+  broad = FALSE,
+  verbose = TRUE
+)
+
+# scM_pit_LD1d_2
+scM_pit_LD1d_2_peaks <- CallPeaks(scM_pit_LD1d_2_pQC,
+  assay = "ATAC",
+  format = "BED",
+  outdir = "/outpath",
+  name = "scM_pit_LD1d_2",
+  macs2.path = "~/path_to_macs2",
+  effective.genome.size = 4.5e8,
+  cleanup = FALSE,
+  broad = FALSE,
+  verbose = TRUE
+)
+
+# scM_pit_LD2d_1
+scM_pit_LD2d_1_peaks <- CallPeaks(scM_pit_LD2d_1_pQC,
+  assay = "ATAC",
+  format = "BED",
+  outdir = "/outpath",
+  name = "scM_pit_LD2d_1",
+  macs2.path = "~/path_to_macs2",
+  effective.genome.size = 4.5e8,
+  cleanup = FALSE,
+  broad = FALSE,
+  verbose = TRUE
+)
+```
+
+---
+
+# Non redudant peak set
+```{r Non redudant peak set, message=TRUE, warning=TRUE, paged.print=TRUE}
+# Create a unified set of peaks to quantify in each dataset
+scM_pit_peaks <- disjoin(x = c(
+  scM_pit_SD_1_peaks,
+  scM_pit_SD_2_peaks,
+  scM_pit_SD_3_peaks,
+  scM_pit_LD1d_1_peaks,
+  scM_pit_LD1d_2_peaks,
+  scM_pit_LD2d_1_peaks
+))
+
+# Filter out bad peaks based on length
+peakwidths <- width(scM_pit_peaks)
+scM_pit_peaks <- scM_pit_peaks[peakwidths < 10000 & peakwidths > 0]
+scM_pit_peaks <- keepSeqlevels(scM_pit_peaks, c(
+  "groupI",
+  "groupII",
+  "groupIII",
+  "groupIV",
+  "groupV",
+  "groupVI",
+  "groupVII",
+  "groupVIII",
+  "groupIX",
+  "groupX",
+  "groupXI",
+  "groupXII",
+  "groupXIII",
+  "groupXIV",
+  "groupXV",
+  "groupXVI",
+  "groupXVII",
+  "groupXVIII",
+  "groupXIX",
+  "groupXX",
+  "groupXXI"
+),
+pruning.mode = "coarse"
+)
+```
+
+---
+
+# Quantify nrpeaks
+```{r Quantify nrpeaks, message=TRUE, warning=TRUE, paged.print=TRUE}
+# disjoin 0 ~ 10000 (remove scaffolds)
+## scM_pit_SD_1
+scM_pit_SD_1_nrcounts.10 <- FeatureMatrix(
+  fragments = Fragments(scM_pit_SD_1_pQC),
+  features = scM_pit_peaks,
+  cells = colnames(scM_pit_SD_1_pQC),
+  verbose = TRUE
+)
+
+## scM_pit_SD_2
+scM_pit_SD_2_nrcounts.10 <- FeatureMatrix(
+  fragments = Fragments(scM_pit_SD_2_pQC),
+  features = scM_pit_peaks,
+  cells = colnames(scM_pit_SD_2_pQC),
+  verbose = TRUE
+)
+
+## scM_pit_SD_3
+scM_pit_SD_3_nrcounts.10 <- FeatureMatrix(
+  fragments = Fragments(scM_pit_SD_3_pQC),
+  features = scM_pit_peaks,
+  cells = colnames(scM_pit_SD_3_pQC),
+  verbose = TRUE
+)
+
+## scM_pit_LD1d_1
+scM_pit_LD1d_1_nrcounts.10 <- FeatureMatrix(
+  fragments = Fragments(scM_pit_LD1d_1_pQC),
+  features = scM_pit_peaks,
+  cells = colnames(scM_pit_LD1d_1_pQC),
+  verbose = TRUE
+)
+
+## scM_pit_LD1d_2
+scM_pit_LD1d_2_nrcounts.10 <- FeatureMatrix(
+  fragments = Fragments(scM_pit_LD1d_2_pQC),
+  features = scM_pit_peaks,
+  cells = colnames(scM_pit_LD1d_2_pQC),
+  verbose = TRUE
+)
+
+## scM_pit_LD2d_1
+scM_pit_LD2d_1_nrcounts.10 <- FeatureMatrix(
+  fragments = Fragments(scM_pit_LD2d_1_pQC),
+  features = scM_pit_peaks,
+  cells = colnames(scM_pit_LD2d_1_pQC),
+  verbose = TRUE
+)
+```
+
+---
+
+# Add new nrpeaks assay
+```{r Nrpeaks assay, message=TRUE, warning=TRUE}
+# scM_pit_SD_1
+scM_pit_SD_1_pQC[["nrpeaks"]] <- CreateChromatinAssay(
+  counts = scM_pit_SD_1_nrcounts.10,
+  sep = c(":", "-"),
+  fragments = scM_pit_SD_1_frag.file,
+  annotation = annotations
+)
+
+# scM_pit_SD_2
+scM_pit_SD_2_pQC[["nrpeaks"]] <- CreateChromatinAssay(
+  counts = scM_pit_SD_2_nrcounts.10,
+  sep = c(":", "-"),
+  fragments = scM_pit_SD_2_frag.file,
+  annotation = annotations
+)
+
+# scM_pit_SD_3
+scM_pit_SD_3_pQC[["nrpeaks"]] <- CreateChromatinAssay(
+  counts = scM_pit_SD_3_nrcounts.10,
+  sep = c(":", "-"),
+  fragments = scM_pit_SD_3_frag.file,
+  annotation = annotations
+)
+
+# scM_pit_LD1d_1
+scM_pit_LD1d_1_pQC[["nrpeaks"]] <- CreateChromatinAssay(
+  counts = scM_pit_LD1d_1_nrcounts.10,
+  sep = c(":", "-"),
+  fragments = scM_pit_LD1d_1_frag.file,
+  annotation = annotations
+)
+
+# scM_pit_LD1d_2
+scM_pit_LD1d_2_pQC[["nrpeaks"]] <- CreateChromatinAssay(
+  counts = scM_pit_LD1d_2_nrcounts.10,
+  sep = c(":", "-"),
+  fragments = scM_pit_LD1d_2_frag.file,
+  annotation = annotations
+)
+
+# scM_pit_LD2d_1
+scM_pit_LD2d_1_pQC[["nrpeaks"]] <- CreateChromatinAssay(
+  counts = scM_pit_LD2d_1_nrcounts.10,
+  sep = c(":", "-"),
+  fragments = scM_pit_LD2d_1_frag.file,
+  annotation = annotations
+)
+```
+
+---
+
+# Merge objects
+```{r Merging , message=TRUE, warning=TRUE, paged.print=TRUE}
+# scM_pit_SD_1
+DefaultAssay(scM_pit_SD_1_pQC) <- "nrpeaks"
+scM_pit_SD_1_pQC[["ATAC"]] <- NULL
+scM_pit_SD_1_pQC[["peaks"]] <- NULL
+scM_pit_SD_1_pQC$group <- "scM_pit_SD_1"
+
+# scM_pit_SD_2
+DefaultAssay(scM_pit_SD_2_pQC) <- "nrpeaks"
+scM_pit_SD_2_pQC[["ATAC"]] <- NULL
+scM_pit_SD_2_pQC[["peaks"]] <- NULL
+scM_pit_SD_2_pQC$group <- "scM_pit_SD_2"
+
+# scM_pit_SD_3
+DefaultAssay(scM_pit_SD_3_pQC) <- "nrpeaks"
+scM_pit_SD_3_pQC[["ATAC"]] <- NULL
+scM_pit_SD_3_pQC[["peaks"]] <- NULL
+scM_pit_SD_3_pQC$group <- "scM_pit_SD_3"
+
+# scM_pit_LD1d_1
+DefaultAssay(scM_pit_LD1d_1_pQC) <- "nrpeaks"
+scM_pit_LD1d_1_pQC[["ATAC"]] <- NULL
+scM_pit_LD1d_1_pQC[["peaks"]] <- NULL
+scM_pit_LD1d_1_pQC$group <- "scM_pit_LD1d_1"
+
+# scM_pit_LD1d_2
+DefaultAssay(scM_pit_LD1d_2_pQC) <- "nrpeaks"
+scM_pit_LD1d_2_pQC[["ATAC"]] <- NULL
+scM_pit_LD1d_2_pQC[["peaks"]] <- NULL
+scM_pit_LD1d_2_pQC$group <- "scM_pit_LD1d_2"
+
+# scM_pit_LD2d_1
+DefaultAssay(scM_pit_LD2d_1_pQC) <- "nrpeaks"
+scM_pit_LD2d_1_pQC[["ATAC"]] <- NULL
+scM_pit_LD2d_1_pQC[["peaks"]] <- NULL
+scM_pit_LD2d_1_pQC$group <- "scM_pit_LD2d_1"
+
+scM_pit_SD <- merge(scM_pit_SD_1_pQC,
+  y = list(scM_pit_SD_2_pQC, scM_pit_SD_3_pQC),
+  add.cell.ids = c("scM_pit_SD_1", "scM_pit_SD_2", "scM_pit_SD_3")
+)
+scM_pit_SD@meta.data <- mutate(
+  scM_pit_SD@meta.data,
+  "daylength" = "SD",
+  .keep = "all",
+  .after = "group"
+)
+
+scM_pit_LD1d <- merge(scM_pit_LD1d_1_pQC,
+  y = scM_pit_LD1d_2_pQC,
+  add.cell.ids = c("scM_pit_LD1d_1", "scM_pit_LD1d_2")
+)
+
+scM_pit_LD2d <- scM_pit_LD2d_1_pQC
+scM_pit_LD2d <- RenameCells(
+  scM_pit_LD2d,
+  add.cell.id = c("scM_pit_LD2d_1")
+)
+```
+
+---
+
+# Add additional metadata info
+```{r Additional info, message=TRUE, warning=TRUE, paged.print=TRUE}
+# SD
+scM_pit_SD@meta.data <- mutate(
+  scM_pit_SD@meta.data,
+  "daylength" = "SD",
+  .keep = "all",
+  .after = "group"
+)
+scM_pit_SD@meta.data <- mutate(
+  scM_pit_SD@meta.data,
+  "photoperiod" = "SD",
+  .keep = "all",
+  .after = "daylength"
+)
+
+# LD1d
+scM_pit_LD1d@meta.data <- mutate(
+  scM_pit_LD1d@meta.data,
+  "daylength" = "LD1d",
+  .keep = "all",
+  .after = "group"
+)
+scM_pit_LD1d@meta.data <- mutate(
+  scM_pit_LD1d@meta.data,
+  "photoperiod" = "LD",
+  .keep = "all",
+  .after = "daylength"
+)
+
+# LD2d
+scM_pit_LD2d@meta.data <- mutate(
+  scM_pit_LD2d@meta.data,
+  "daylength" = "LD2d",
+  .keep = "all",
+  .after = "group"
+)
+scM_pit_LD2d@meta.data <- mutate(
+  scM_pit_LD2d@meta.data,
+  "photoperiod" = "LD",
+  .keep = "all",
+  .after = "daylength"
+)
+
+```
+
+---
+
+# Multimodal data preprocessing
+## GEX
+### Data Normalization
+```{r Data Normalization, message=TRUE, warning=TRUE, paged.print=TRUE}
+DefaultAssay(scM_pit_SD) <- "RNA"
+DefaultAssay(scM_pit_LD1d) <- "RNA"
+DefaultAssay(scM_pit_LD2d) <- "RNA"
+# scM_pit_SD
+scM_pit_SD <- NormalizeData(scM_pit_SD,
+  normalization.method = "LogNormalize",
+  scale.factor = 1e4,
+  assay = "RNA"
+)
+
+# scM_pit_LD1d
+scM_pit_LD1d <- NormalizeData(scM_pit_LD1d,
+  normalization.method = "LogNormalize",
+  scale.factor = 1e4,
+  assay = "RNA"
+)
+
+# scM_pit_LD2d
+scM_pit_LD2d <- NormalizeData(scM_pit_LD2d,
+  normalization.method = "LogNormalize",
+  scale.factor = 1e4,
+  assay = "RNA"
+)
+```
+
+---
+
+### Feature selection
+```{r Feature selection, message=TRUE, warning=TRUE, paged.print=TRUE}
+# scM_pit_SD
+scM_pit_SD <- FindVariableFeatures(scM_pit_SD,
+  selection.method = "vst",
+  nfeatures = 3000,
+  "RNA"
+)
+## Identify the 10 most highly variable genes
+scM_pit_SD_top10 <- head(VariableFeatures(scM_pit_SD), 10)
+
+# scM_pit_LD1d
+scM_pit_LD1d <- FindVariableFeatures(scM_pit_LD1d,
+  selection.method = "vst",
+  nfeatures = 3000,
+  assay = "RNA"
+)
+## Identify the 10 most highly variable genes
+scM_pit_LD1d_top10 <- head(VariableFeatures(scM_pit_LD1d), 10)
+
+
+# scM_pit_LD2d
+scM_pit_LD2d <- FindVariableFeatures(scM_pit_LD2d,
+  selection.method = "vst",
+  nfeatures = 3000,
+  "RNA"
+)
+## Identify the 10 most highly variable genes
+scM_pit_LD2d_top10 <- head(VariableFeatures(scM_pit_LD2d), 10)
+```
+
+---
+
+### GEX Data integration
+```{r GEX Data integration, message=TRUE, warning=TRUE, paged.print=TRUE}
+list <- list(scM_pit_SD, scM_pit_LD1d, scM_pit_LD2d)
+# Select integration features
+GEX_features <- SelectIntegrationFeatures(
+  object.list = list,
+  nfeatures = 3000,
+  assay = c("RNA", "RNA", "RNA")
+)
+
+# Find anchors
+GEX_anchors <- FindIntegrationAnchors(object.list = list)
+
+# Data integration
+scM <- IntegrateData(anchorset = GEX_anchors)
+```
+
+---
+
+### Scaling & PCA
+```{r Scaling & PCA, message=TRUE, warning=TRUE, paged.print=TRUE}
+# Data scaling
+scM <- ScaleData(scM,
+                 verbose = TRUE)
+
+# Run PCA
+scM <- RunPCA(scM, npcs = 50,
+              reduction.key = "PC_",
+              verbose = TRUE)
+
+print(scM[["pca"]], 
+      dims = 1:5, 
+      nfeatures = 5)
+```
+
+---
+
+## ATAC
+### Computing LSI
+```{r Computing LSI, message=TRUE, warning=TRUE, paged.print=TRUE}
+# scM_pit_SD
+DefaultAssay(scM_pit_SD) <- "nrpeaks"
+
+## Find top features
+scM_pit_SD <- FindTopFeatures(scM_pit_SD,
+  assay = "nrpeaks",
+  min.cutoff = 1,
+  verbose = TRUE
+)
+
+## Run TF-IDF
+scM_pit_SD <- RunTFIDF(scM_pit_SD,
+  assay = "nrpeaks",
+  scale.factor = 10000, # default
+  verbose = TRUE
+)
+
+## Run SVD
+scM_pit_SD <- RunSVD(scM_pit_SD,
+  assay = "nrpeaks",
+  reduction.key = "LSI_",
+  reduction.name = "lsi",
+  verbose = TRUE
+)
+
+
+# scM_pit_LD1d
+DefaultAssay(scM_pit_LD1d) <- "nrpeaks"
+
+## Find top features
+scM_pit_LD1d <- FindTopFeatures(scM_pit_LD1d,
+  assay = "nrpeaks",
+  min.cutoff = 1,
+  verbose = TRUE
+)
+
+## Run TF-IDF
+scM_pit_LD1d <- RunTFIDF(scM_pit_LD1d,
+  assay = "nrpeaks",
+  scale.factor = 10000, # default
+  verbose = TRUE
+)
+
+## Run SVD
+scM_pit_LD1d <- RunSVD(scM_pit_LD1d,
+  assay = "nrpeaks",
+  reduction.key = "LSI_",
+  reduction.name = "lsi",
+  verbose = TRUE
+)
+
+# scM_pit_LD2d
+DefaultAssay(scM_pit_LD2d) <- "nrpeaks"
+
+## Find top features
+scM_pit_LD2d <- FindTopFeatures(scM_pit_LD2d,
+  assay = "nrpeaks",
+  min.cutoff = 1,
+  verbose = TRUE
+)
+
+## Run TF-IDF
+scM_pit_LD2d <- RunTFIDF(scM_pit_LD2d,
+  assay = "nrpeaks",
+  scale.factor = 10000, # default
+  verbose = TRUE
+)
+
+## Run SVD
+scM_pit_LD2d <- RunSVD(scM_pit_LD2d,
+  assay = "nrpeaks",
+  reduction.key = "LSI_",
+  reduction.name = "lsi",
+  verbose = TRUE
+)
+```
+
+---
+
+### Find integration anchors
+```{r find integration anchors, message=TRUE, warning=TRUE, paged.print=TRUE}
+ATAC.anchors <- FindIntegrationAnchors(
+  object.list = list(
+    scM_pit_SD,
+    scM_pit_LD1d,
+    scM_pit_LD2d
+  ),
+  anchor.features = rownames(scM_pit_SD),
+  assay = c("nrpeaks", "nrpeaks", "nrpeaks"),
+  reduction = "rlsi",
+  dims = 2:30,
+  verbose = TRUE
+)
+```
+
+---
+
+### Integrating LSI embeddings
+```{r Integrating LSI embeddings, message=TRUE, warning=TRUE, paged.print=TRUE}
+DefaultAssay(scM) <- "nrpeaks"
+
+# Integrate LSI embeddings
+lsi <- IntegrateEmbeddings(
+  anchorset = ATAC.anchors,
+  reductions <- scM_pit_all[["lsi"]],
+  new.reduction.name = "integrated_lsi",
+  dims.to.integrate = 1:30,
+  verbose = TRUE
+)
+
+scM@reductions[["integrated_lsi"]] <- lsi@reductions[["integrated_lsi"]]
+
+```
+
+---
+
+# Independent Clustering
+## GEX
+```{r GEX umap, message=TRUE, warning=TRUE, paged.print=TRUE}
+DefaultAssay(scM) <- "integrated"
+
+# Find neighbors for GEX
+scM <- FindNeighbors(scM,
+  reduction = "pca",
+  dims = 1:20
+)
+
+# Find clusters for GEX
+scM <- FindClusters(scM, resolution = 0.5)
+
+scM <- RunUMAP(scM,
+  reduction = "pca",
+  reduction.key = "GEXUMAP_",
+  reduction.name = "gex.umap",
+  dims = 1:20
+)
+# store gex cluster
+scM@meta.data$gex.clusters <- scM@meta.data$seurat_clusters
+```
+
+---
+
+## ATAC
+```{r atac umap, message=TRUE, warning=TRUE, paged.print=TRUE}
+DefaultAssay(scM) <- "nrpeaks"
+
+# Cluster tree
+scM <- FindNeighbors(
+  object = scM,
+  reduction = "integrated_lsi",
+  dims = 2:50,
+  assay = "nrpeaks"
+)
+
+scM <- FindClusters(
+  object = scM,
+  algorithm = 3,
+  resolution = 0.7,
+  verbose = TRUE,
+  save.SNN = TRUE
+)
+# store atac cluster
+scM@meta.data$atac.clusters <- scM@meta.data$seurat_clusters
+
+scM <- RunUMAP(
+  object = scM,
+  reduction = "integrated_lsi",
+  dims = 2:50,
+  reduction.name = "atac.umap",
+  reduction.key = "ATAC.UMAP_",
+  verbose = TRUE
+)
+```
+
+---
+
+# Joint Clustering
+## WNN
+```{r WNN, message=TRUE, warning=TRUE, paged.print=TRUE}
+# Build a joint neighbor graph using both assays
+DefaultAssay(scM) <- "nrpeaks"
+
+scM <- FindMultiModalNeighbors(
+  object = scM,
+  reduction.list = list("pca", "integrated_lsi"),
+  dims.list = list(1:50, 2:40),
+  modality.weight.name = "RNA.weight",
+  verbose = TRUE
+)
+
+# clustering
+scM <- FindClusters(scM,
+  resolution = 0.4,
+  graph.name = "wsnn",
+  algorithm = 3,
+  save.SNN = TRUE
+)
+# store wnn cluster
+scM@meta.data$wnn.clusters <- scM@meta.data$seurat_clusters
+
+# build a joint UMAP visualization
+scM <- RunUMAP(
+  object = scM,
+  nn.name = "weighted.nn",
+  reduction.name = "wnn.umap",
+  reduction.key = "wnnUMAP_",
+  assay = "RNA",
+  verbose = TRUE
+)
+```
+
+---
+
+# GEX cell markers (DEGs)
+```{r GEX cell markers, message=TRUE, warning=TRUE, paged.print=TRUE}
+DefaultAssay(scM) <- "RNA"
+Idents(scM) <- "gex.clusters"
+
+rna.markers <- FindAllMarkers(scM,
+  only.pos = TRUE,
+  assay = "RNA",
+  logfc.threshold = 0.25,
+  min.pct = 0.01,
+  test.use = "wilcox",
+  verbose = T
+)
+
+# Extract the top 20 DEGs for each cluster
+top.deg <- rna.markers %>%
+  group_by(gex_cluster) %>%
+  dplyr::filter(p_val_adj < 0.05) %>%
+  arrange(desc(avg_log2FC)) %>%
+  slice_head(n = 20) %>%
+  ungroup()
+
+# GO analysis
+go_res <- list()
+
+for (cluster in unique(top.deg$gex_cluster)) {
+  gene_list <- as.vector(top.deg[top.deg$gex_cluster == cluster, "gene"])
+  temp <- gost(
+    query = gene_list,
+    organism = "gaculeatus",
+    sources = c("GO:BP", "GO:MF", "GO:CC", "HP"),
+    ordered_query = TRUE,
+    significant = FALSE
+  )
+  temp[["result"]][["parents"]] <- NULL
+  temp1 <- as.data.frame(temp[["result"]])
+  temp1$gex_cluster <- cluster
+  go_res[[paste("gex_cluster_", as.character(cluster), sep = "")]] <- temp1
+}
+final_go_res <- as.data.frame(do.call(rbind, go_res))
+```
+
+---
+
+# ATAC cell markers (DARs)
+```{r ATAC cell markers, message=TRUE, warning=TRUE, paged.print=TRUE} 
+DefaultAssay(scM) <- "nrpeaks"
+Idents(object = scM) <- scM@meta.data$"gex.cluster"
+
+# Set limit to 16 GiB
+options(future.globals.maxSize = 16000 * 1024^3)
+
+# Set up a multisession plan of cpu cores
+plan(multisession, workers = 10)
+
+# Extract the identities (clusters) from Seurat object
+idents <- levels(Idents(scM))
+
+# Use future_lapply to perform parallel computation;
+# Loop over each identity and find markers for each cluster separately
+atac.markers <- future_lapply(idents, function(x) {
+  FindMarkers(
+    object = scM,
+    ident.1 = x,
+    min.pct = 0.01,
+    assay = "nrpeaks",
+    logfc.threshold = 0.1,
+    test.use = "LR",
+    latent.vars = "nCount_peaks",
+    verbose = TRUE,
+    only.pos = TRUE
+  )
+}, future.seed = TRUE)
+
+# add cluster info
+atac.markers <- lapply(seq_along(atac.markers), function(i) {
+  atac.markers[[i]]$cluster <- i - 1
+  return(atac.markers[[i]])
+})
+
+atac_markers <- do.call(rbind, atac.markers) %>%
+  tibble::rownames_to_column(var = "peak.id") %>%
+  tidyr::separate(
+    col = "peak.id",
+    into = c("chr", "start", "end"),
+    sep = "-",
+    remove = FALSE
+  )
+
+# Extract the top 20 DARs for each cluster
+top20.dar <- atac_markers %>%
+  group_by(cluster) %>%
+  dplyr::filter(avg_log2FC > 1 & p_val_adj < 0.05) %>%
+  arrange(desc(avg_log2FC)) %>%
+  slice_head(n = 20) %>%
+  ungroup()
+```
+
+---
+
+# Motif analysis
+## Motif Scan
+```{r Motif Scan, message=TRUE, warning=TRUE, paged.print=TRUE}
+DefaultAssay(scM) <- "nrpeaks"
+# Retrieve the JASPAR2022 database
+JASPAR2022 <- JASPAR2022()
+vertebrate_set <- getMatrixSet(
+  x = db(JJASPAR2022),
+  opts = list(
+    all_versions = FALSE,
+    tax_group = "vertebrates"
+  )
+)
+
+# Load the genome
+genome <- FaFile("path/to/genome.fa")
+
+# Match the motifs in the genome
+motif.positions <- matchMotifs(
+  pwms = vertebrate_set,
+  subject = granges(scM),
+  out = "positions",
+  genome = genome
+)
+
+# Create a motif matrix
+motif.matrix <- CreateMotifMatrix(
+  features = granges(scM),
+  pwm = vertebrate_set,
+  genome = genome,
+  use.counts = TRUE
+)
+
+# Create a motif object
+motif.object <- CreateMotifObject(
+  data = motif.matrix,
+  pwm = vertebrate_set
+)
+
+# Add the motif infoto the Seurat object
+scM <- SetAssayData(scM,
+  assay = "nrpeaks",
+  slot = "motifs",
+  new.data = motif.object
+)
+
+scM@assays[["nrpeaks"]]@motifs@positions <- motif.positions
+```
+
+---
+
+## Computing motif activities
+```{r Computing motif activities, message=TRUE, warning=TRUE, paged.print=TRUE}
+scM <- RunChromVAR(
+  object = scM,
+  genome = genome,
+  assay = "nrpeaks",
+  verbose = T
+)
+```
+
+---
+
+## Overrepresented motifs in DARs (for each cell cluster)
+```{r Overrepresented motifs in DARs, message=TRUE, warning=TRUE, paged.print=TRUE}
+# Read the ATAC marker file
+atac_marker <- read.csv(
+  file = "path/to/atac_marker.csv",
+  header = TRUE
+) %>% dplyr::select(-1)
+
+# Filter the atac marker
+sig.dars <- atac_marker.f %>%
+  group_by(cluster) %>%
+  dplyr::filter(p_val_adj < 5e-2) %>%
+  arrange(cluster, desc(avg_log2FC)) %>%
+  ungroup()
+
+# Loop over each cluster value from 0 to 15
+cluster.dars <- list()
+for (i in 0:15) {
+  cluster.dars[[i + 1]] <- sig.dars %>%
+    dplyr::filter(cluster == i)
+}
+# Names the list elements for easier reference
+names(cluster.dars) <- paste0("gex.cluster_", 0:15)
+
+# Initialize an empty list to store the MotifPlot objects for each cluster
+motif_plots <- list()
+enriched_motifs_list <- list()
+# Loop over each cluster contained in the cluster.dars list
+for (i in 1:length(cluster.dars)) {
+  # Extract the data for the current cluster
+  current_cluster <- cluster.dars[[i]]
+  # Perform motif enrichment analysis using the FindMotifs function
+  enriched.motifs <- FindMotifs(
+    object = scM,
+    assay = "nrpeaks",
+    features = current_cluster$gene
+  )
+  # Add the cluster index to the enriched motifs
+  enriched.motifs$cluster <- i - 1
+  # Store the enriched motifs in the list using the cluster index
+  enriched_motifs_list[[i]] <- enriched.motifs
+  # filter and sort
+  sorted.motifs <- enriched.motifs %>%
+    dplyr::filter(pvalue <= 0.05) %>%
+    dplyr::arrange(desc(fold.enrichment))
+  # Extract the names of the enriched motifs to plot, limiting to the top 8 motifs
+  motifs_to_plot <- head(rownames(sorted.motifs), n = 4)
+  # Generate a MotifPlot for the current cluster
+  temp_motif_plot <- MotifPlot(
+    object = scM,
+    assay = "nrpeaks",
+    motifs = motifs_to_plot,
+    ncol = 2
+  ) +
+    theme_bw() +
+    labs(title = paste("Enriched Motifs in Cluster_", i - 1)) +
+    theme(plot.title = element_text(
+      face = "bold",
+      hjust = 0.5
+    ))
+  # Store the MotifPlot in the list using the cluster index
+  motif_plots[[i]] <- temp_motif_plot
+}
+wrap_plots(motif_plots, ncol = 4)
+# motif_plots[[1]] + theme(axis.text.x = element_text(size = 8, hjust = 1))
+combined_enriched_motifs <- do.call(
+  rbind,
+  enriched_motifs_list
+)
+```
+
+---
+
+# Photoperiod-responsive analysis
+##  Photoperiod-responsive DEGs in each cell cluster
+```{r Photoperiod-responsive DEGs, message=TRUE, warning=TRUE, paged.print=TRUE}
+DefaultAssay(scM) <- "RNA"
+Idents(scM) <- "cell.gex"
+
+# Add cell-daylength info
+scM$celltype.group <- paste(Idents(scM), scM$photoperiod, sep = "_")
+Idents(scM) <- "celltype.group"
+
+# loop over each cluster
+degs <- list()
+for (cluster in unique(scM@meta.data$cell.gex)) {
+  degs[[cluster]] <- FindMarkers(
+    object = scM,
+    ident.1 = paste0(cluster, "_SD"),
+    ident.2 = paste0(cluster, "_LD"),
+    densify = T,
+    verbose = T
+  )
+  message(paste("Cluster:", cluster, "done"))
+}
+
+# save the degs
+for (i in 1:length(degs)) {
+  write.csv(degs[[i]], 
+            file = paste0("path/wilcox_degs_", names(degs)[i], ".csv"))
+  message(paste("Cluster:", names(degs)[i], "saved"))
+}
+```
+
+---
+
+## Photoperiod-responsive DEMs in each cell cluster
+```{r Photoperiod-responsive DEMs, message=TRUE, warning=TRUE, paged.print=TRUE}
+DefaultAssay(scM) <- 'chromvar'
+Idents(scM) <- "cell.gex"
+# create cell-daylength info
+scM$celltype.group <- paste(Idents(scM), scM$photoperiod, sep = "_")
+Idents(scM) <- "celltype.group"
+
+# loop over each cluster
+dems <- list()
+for (cluster in unique(scM@meta.data$cell.gex)) {
+  dems[[cluster]] <- FindMarkers(
+    object = scM,
+    ident.1 = paste0(cluster, "_SD"),
+    ident.2 = paste0(cluster, "_LD"),
+    min.pct = 0.01,
+    mean.fxn = rowMeans,
+    fc.name = "avg_diff",
+    densify = T,
+    verbose = T
+  )
+  message(paste("Cluster:", cluster, "done"))
+}
+
+# save the dems
+for (i in 1:length(dems)) {
+  write.csv(dems[[i]] %>%  dplyr::filter(p_val_adj < 0.05), 
+            file = paste0("path/wilcox_dems_", names(dems)[i], ".csv"))
+  message(paste("Cluster:", names(dems)[i], "saved"))
+}
+```
+
+
