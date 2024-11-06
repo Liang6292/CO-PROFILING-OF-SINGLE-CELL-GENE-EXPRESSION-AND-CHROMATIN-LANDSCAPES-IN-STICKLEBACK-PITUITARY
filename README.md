@@ -7,6 +7,7 @@ The pituitary gland is a key endocrine gland with various physiological function
 
 # Data Source
 The raw reads and alignment files for single-cell RNA-seq and ATAC-seq are available through the DNA Data Bank of Japan (DDBJ) under the project accession DRP011961 (2024).
+
 Preprocessed feature-barcode matrices can be accessed on Figshare via 10.6084/m9.figshare.26795323.
 
 # Analysis Workflow
